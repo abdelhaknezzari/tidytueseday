@@ -1,0 +1,10 @@
+*.csv
+*.RData
+*.rds
+*.rdf
+*.json
+*.snapshot
+*.tsv
+/2019_12_24ChristmasMusicBillboards/.Rproj.user/981C6BD7/sources/per
+/2019_12_24ChristmasMusicBillboards/.Rproj.user/shared/notebooks
+/2019_12_24ChristmasMusicBillboards/.Rproj.user
