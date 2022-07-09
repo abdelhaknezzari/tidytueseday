@@ -1,0 +1,49 @@
+---
+title: "R Notebook"
+output: html_document
+---
+
+The data are coming form tidytuesday dataset for the last week of June 2022, the data are about paygap between genders in UK,
+you can find more description of the data are [link](https://github.com/rfordatascience/tidytuesday/tree/master/data/2022/2022-06-28)
+or at [link2](https://gender-pay-gap.service.gov.uk/viewing/download)
+
+The following [code](https://github.com/rfordatascience/tidytuesday/tree/master/data/2022/2022-06-28)  was provided to retrieve the data:
+```{r}
+library(tidyverse)
+library(vroom)
+library(fs)
+
+```
+
+
+
+```{r}
+pay_files <- fs::dir_ls(path = "2022/2022-06-28/", glob = "*csv")
+raw_df <- vroom::vroom(pay_files)
+
+
+clean_df <- raw_df |>
+  janitor::clean_names() |>
+  mutate(
+    across(c(due_date, date_submitted),lubridate::as_datetime),
+    employer_name = str_remove_all(employer_name, "\""),
+    employer_name = str_replace_all(employer_name, ", |,", ", ")
+  )
+
+clean_df |>
+  glimpse()
+
+clean_df |>
+  write_csv("2022/2022-06-28/paygap.csv")
+
+```
+
+
+```{r}
+
+```
+
+
+
+
+
