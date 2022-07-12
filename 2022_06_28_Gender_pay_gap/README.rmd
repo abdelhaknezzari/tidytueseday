@@ -1,6 +1,9 @@
 ---
-title: "R Notebook"
-output: html_document
+title: "README"
+output:
+  md_document:
+  variant:
+      markdown_github
 ---
 
 The data are coming form tidytuesday dataset for the last week of June 2022, the data are about paygap between genders in UK,
@@ -8,33 +11,198 @@ you can find more description of the data are [link](https://github.com/rfordata
 or at [link2](https://gender-pay-gap.service.gov.uk/viewing/download)
 
 The following [code](https://github.com/rfordatascience/tidytuesday/tree/master/data/2022/2022-06-28)  was provided to retrieve the data:
-```{r}
+```{r  includeLibraries}
 library(tidyverse)
-library(vroom)
 library(fs)
+library(magrittr)
 
 ```
+
+let's create a folder where to put the files of data '2022_06_28'
+
+```{r createFolderOfData}
+#fs::dir_create("2022_06_28")
+```
+Let's retrieve the data, and store it as rds file, as it is faster for reading and writing comparing to csv
+```{r saveDataLocally}
+# tidytuesdayR::tt_load(2022, week = 26) %>% .$paygap %>% saveRDS("2022_06_28/paygap.rds")
+```
+
+
+show the different columns of the data, and statistics like number of rows, we split the employer_size to two columns "employer_size_lower", "employer_size_upper"
+
+```{r readData}
+
+df <- "2022_06_28/paygap.rds" %>%   readRDS()  %>%
+  mutate( employer_size = ifelse(employer_size %>%  str_detect( "Less than" ),paste(0, " to " ,employer_size %>%  str_sub(11)),
+                          ifelse(employer_size %>%  str_detect( "or more" ),  paste(employer_size %>%  str_replace( "or more", "" ), " to " ,employer_size %>%  str_replace( "or more", "" ) %>% as.numeric() %>% add( 1)  ),employer_size )) ) %>%
+  separate(employer_size, c("employer_size_lower", "employer_size_upper"), sep = " to ") %>%
+  mutate( employer_size_lower = employer_size_lower %>% as.numeric(), employer_size_upper = employer_size_upper %>% as.numeric() )
+
+
+df %>% glimpse()
+
+```
+
+some more statistics about the different columns:
+
+```{r showStatisticsOfDifferencolumns}
+df %>% summary()
+
+```
+
+We plot all the numeric values like:
+"diff_mean_hourly_percent"
+"diff_median_hourly_percent"
+"diff_mean_bonus_percent"
+"diff_median_bonus_percent"
+"male_bonus_percent"
+"female_bonus_percent"
+"male_lower_quartile"
+"female_lower_quartile"
+"male_lower_middle_quartile"
+"female_lower_middle_quartile"
+"male_upper_middle_quartile"
+"female_upper_middle_quartile"
+"male_top_quartile"
+"female_top_quartile"
+
+to do that we convert the table to show all the values of above columns in the one column, and we differentiate them with and additional colum that shows the name of the values, we use function gather of tidyr
+
+
+```{r groupColumns}
+
+df %>% select(-c("employer_id", "address", "post_code","company_number","sic_codes", "company_link_to_gpg_info", "responsible_person", "current_name", "submitted_after_the_deadline", "due_date", "date_submitted")) %>%
+        gather( metricName, metricValue, - employer_name ) %>% head() %>% knitr::kable()
+
+
+
+```
+
+we need to find the employers with maximum of NA values, and sort them in descending order
+
+
+```{r}
+df %>% select(-c("employer_id", "address", "post_code","company_number","sic_codes", "company_link_to_gpg_info", "responsible_person", "current_name", "submitted_after_the_deadline", "due_date", "date_submitted")) %>%
+  gather( metricName, metricValue, - employer_name ) %>%
+  filter( metricValue %>% is.na()) %>%
+  group_by(employer_name) %>%
+  summarise( numberNa = n() ) %>%
+  arrange( desc( numberNa ) ) %>%
+  head(50) %>%
+  ggplot(aes(x= reorder(employer_name,numberNa), y= numberNa  )) +
+  geom_bar(  stat = "identity" )+
+  coord_flip() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  labs( x = "Employer Name" , y = "Occurence of NA values")
+
+
+```
+
+We filter out the NA values
+
+```{r}
+df %<>% select(-c("employer_id", "address", "post_code","company_number","sic_codes", "company_link_to_gpg_info", "responsible_person", "current_name", "submitted_after_the_deadline", "due_date", "date_submitted")) %>%
+  gather( metricName, metricValue, - employer_name ) %>%
+  filter( ! metricValue %>% is.na())
+```
+
+
+we verify the range of variation of different columns:
+
+first let's see the variation of : "diff_mean_hourly_percent","diff_median_hourly_percent","diff_mean_bonus_percent","diff_median_bonus_percent" ,
+
+
+```{r}
+df %>%
+  filter( metricName %in% c("diff_mean_hourly_percent","diff_median_hourly_percent","diff_mean_bonus_percent","diff_median_bonus_percent") ) %>%
+  ggplot(aes(x= metricValue, color = metricName  )) +
+  guides(color=guide_legend("Name of metric")) +
+  labs( x = "Metric value" ) +
+  xlim(c(-40, 110)) +
+  geom_density(adjust = 0.3)
+
+```
+
+also "male_bonus_percent","male_lower_quartile","male_lower_middle_quartile","male_upper_middle_quartile","male_top_quartile"
+
+```{r}
+df %>%
+  filter( metricName %in% c("male_bonus_percent","male_lower_quartile","male_lower_middle_quartile","male_upper_middle_quartile","male_top_quartile") ) %>%
+  ggplot(aes(x= metricValue, color = metricName  )) +
+  guides(color=guide_legend("Name of metric")) +
+  labs( x = "Metric value" ) +
+  geom_density(adjust = 0.3)
+
+```
+
+and finally the values of "female_bonus_percent","female_lower_quartile","female_lower_middle_quartile","female_upper_middle_quartile","female_top_quartile"
+
+```{r}
+df %>%
+  filter( metricName %in% c("female_bonus_percent","female_lower_quartile","female_lower_middle_quartile","female_upper_middle_quartile","female_top_quartile") ) %>%
+  ggplot(aes(x= metricValue, color = metricName  )) +
+  guides(color=guide_legend("Name of metric")) +
+  labs( x = "Metric value" ) +
+  # xlim(c(-40, 110)) +
+  geom_density(adjust = 0.3)
+
+```
+
+
+We can see the size of the employers, and we can distinguish the densities at 0, 250 , 500, 1000 and 5000
+
+```{r}
+df %>%
+  filter( metricName %in% c("employer_size_upper","employer_size_lower") ) %>%
+  ggplot(aes(x= metricValue, color = metricName  )) +
+  guides(color=guide_legend("Name of metric")) +
+  labs( x = "Metric value" ) +
+  geom_density(adjust = 0.3)
+
+```
+
+
+
+we check if the gap metrics have any correlation between them, this can help us to reduce number of metrics to take into account,
+female_bonus_percent
+male_bonus_percent
+
+correlate to:
+diff_mean_hourly_percent
+diff_median_hourly_percent
+diff_mean_bonus_percent
+
+and also:
+female_bonus_percent, male_bonus_percent correlate to each other
+
+we can see another correlation between columns:
+diff_mean_bonus_percent
+diff_mean_hourly_percent
+diff_median_hourly_percent
+
 
 
 
 ```{r}
-pay_files <- fs::dir_ls(path = "2022/2022-06-28/", glob = "*csv")
-raw_df <- vroom::vroom(pay_files)
+library(reshape2)
 
 
-clean_df <- raw_df |>
-  janitor::clean_names() |>
-  mutate(
-    across(c(due_date, date_submitted),lubridate::as_datetime),
-    employer_name = str_remove_all(employer_name, "\""),
-    employer_name = str_replace_all(employer_name, ", |,", ", ")
-  )
-
-clean_df |>
-  glimpse()
-
-clean_df |>
-  write_csv("2022/2022-06-28/paygap.csv")
+"2022_06_28/paygap.rds" %>%   readRDS()  %>%
+  mutate( employer_size = ifelse(employer_size %>%  str_detect( "Less than" ),paste(0, " to " ,employer_size %>%  str_sub(11)),
+                                 ifelse(employer_size %>%  str_detect( "or more" ),  paste(employer_size %>%  str_replace( "or more", "" ), " to " ,employer_size %>%  str_replace( "or more", "" ) %>% as.numeric() %>% add( 1)  ),employer_size )) ) %>%
+  separate(employer_size, c("employer_size_lower", "employer_size_upper"), sep = " to ") %>%
+  mutate( employer_size_lower = employer_size_lower %>% as.numeric(), employer_size_upper = employer_size_upper %>% as.numeric() ) %>%
+  select(-c("employer_id", "address", "post_code","company_number","sic_codes", "company_link_to_gpg_info", "responsible_person", "current_name", "submitted_after_the_deadline", "due_date", "date_submitted", "employer_size_lower","employer_size_upper","employer_name" )) %>% filter(  !diff_mean_bonus_percent  %>% is.na()  ) %>%
+  scale( center = F) %>%
+  round(3) %>%
+  cor() %>%
+  melt() %>%
+  filter(value %>% is.na() ) %>%
+  ggplot(aes(x= Var1,y = Var2, fill = value)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  labs( x = "Gap metrics" , y = "Gap metrics") +
+  geom_tile()
 
 ```
 
@@ -42,6 +210,16 @@ clean_df |>
 ```{r}
 
 ```
+
+
+```{r}
+
+```
+
+```{r}
+
+```
+
 
 
 
